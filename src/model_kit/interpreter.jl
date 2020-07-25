@@ -5,6 +5,7 @@
     OP_DIV
     OP_SQR
     OP_POW
+    OP_INV_NOT_ZERO
 end
 
 function InterpreterOp(op::Symbol, arg1, arg2)
@@ -22,13 +23,15 @@ function InterpreterOp(op::Symbol, arg1, arg2)
         else
             OP_POW
         end
+    elseif op == :inv_not_zero
+        OP_INV_NOT_ZERO
     else
         throw(ArgumentError(String(op)))
     end
 end
 
 function is_univariate(op::InterpreterOp)
-    op == OP_SQR
+    op == OP_SQR || op == OP_INV_NOT_ZERO
 end
 
 @enum InterpreterData::UInt16 begin
@@ -55,6 +58,8 @@ function make_op_block(
                 $assign = sqr($arg1)
             elseif $op == OP_POW
                 $assign = Base.power_by_squaring($arg1, $index2)
+            elseif $op == OP_INV_NOT_ZERO
+                $assign = inv_not_zero($arg1)
             end
         end
     else
