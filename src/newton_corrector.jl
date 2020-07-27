@@ -59,7 +59,8 @@ function extended_prec_refinement_step!(
     x::AbstractVector,
     t::Number,
     J::Jacobian,
-    norm::AbstractNorm,
+    norm::AbstractNorm;
+    simple_newton_step::Bool = true
 )
     @unpack Δx, r, x_extended = NC
     evaluate_and_jacobian!(r, matrix(J), H, x, t)
@@ -68,9 +69,11 @@ function extended_prec_refinement_step!(
     LA.ldiv!(Δx, updated!(J), r, norm)
     iterative_refinement!(Δx, J, r, norm; tol = 1e-8, max_iters = 3)
     x̄ .= x .- Δx
-    x_extended .= x̄
-    evaluate!(r, H, x_extended, t)
-    LA.ldiv!(Δx, J, r, norm)
+    if simple_newton_step
+        x_extended .= x̄
+        evaluate!(r, H, x_extended, t)
+        LA.ldiv!(Δx, J, r, norm)
+    end
     norm(Δx)
 end
 

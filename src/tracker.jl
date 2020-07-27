@@ -760,7 +760,16 @@ function use_extended_precision!(tracker::Tracker)
     state.used_extended_prec = true
     # do two refinement steps
     for i = 1:2
-        μ = extended_prec_refinement_step!(x, corrector, homotopy, x, t, jacobian, norm)
+        μ = extended_prec_refinement_step!(
+            x,
+            corrector,
+            homotopy,
+            x,
+            t,
+            jacobian,
+            norm;
+            simple_newton_step = false,
+        )
     end
     state.μ = max(μ, eps())
     state.μ
@@ -768,12 +777,30 @@ end
 
 function refine_current_solution!(tracker; min_tol::Float64 = 4 * eps())
     @unpack homotopy, corrector, state, options = tracker
-    @unpack x, t, jacobian, norm = state
+    @unpack x, x̄, t, jacobian, norm = state
 
-    μ = extended_prec_refinement_step!(x, corrector, homotopy, x, t, jacobian, norm)
+    μ = state.accuracy
+    μ̄ = extended_prec_refinement_step!(
+        x̄,
+        corrector,
+        homotopy,
+        x,
+        t,
+        jacobian,
+        norm;
+        simple_newton_step = false,
+    )
+    if μ̄ < μ
+        copyto!(x, x̄)
+        μ = μ̄
+    end
     k = 1
     while (μ > min_tol && k ≤ 3)
-        μ = extended_prec_refinement_step!(x, corrector, homotopy, x, t, jacobian, norm)
+        μ̄ = extended_prec_refinement_step!(x̄, corrector, homotopy, x, t, jacobian, norm)
+        if μ̄ < μ
+            copyto!(x, x̄)
+            μ = μ̄
+        end
         k += 1
     end
     μ
