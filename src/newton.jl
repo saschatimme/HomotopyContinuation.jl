@@ -102,7 +102,7 @@ This is useful if the method is called repeatedly.
 * `max_rel_norm_first_update::Float64 = max_abs_norm_first_update`: The initial guess `x₀`
   is rejected if `norm(x₁ - x₀) >  max_rel_norm_first_update * norm(x₀)`
 """
-newton(f::System, args...; compile::Bool = COMPILE_DEFAULT[], kwargs...) =
+newton(f::System, args...; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[], kwargs...) =
     newton(fixed(f; compile = compile), args...; kwargs...)
 function newton(
     F::AbstractSystem,

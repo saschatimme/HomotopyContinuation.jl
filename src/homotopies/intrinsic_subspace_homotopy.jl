@@ -72,7 +72,7 @@ IntrinsicSubspaceHomotopy(
     F::ModelKit.System,
     start::LinearSubspace,
     target::LinearSubspace;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 ) = IntrinsicSubspaceHomotopy(fixed(F; compile = compile), start, target)
 
 
@@ -80,7 +80,7 @@ function IntrinsicSubspaceHomotopy(
     system::AbstractSystem,
     start::LinearSubspace,
     target::LinearSubspace;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 )
     IntrinsicSubspaceHomotopy(
         system,

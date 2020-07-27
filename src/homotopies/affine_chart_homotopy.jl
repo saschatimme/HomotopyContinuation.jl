@@ -21,7 +21,7 @@ idepdently from a univariate normal distribution.
 function on_affine_chart(
     H::Homotopy,
     proj_dims = nothing;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 )
     on_affine_chart(fixed(H; compile = compile), proj_dims)
 end

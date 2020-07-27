@@ -34,7 +34,7 @@ function CoefficientHomotopy(
     F::ModelKit.System,
     start_coeffs::AbstractVector,
     target_coeffs::AbstractVector;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 )
     @assert length(start_coeffs) == length(target_coeffs) == length(F.parameters)
     CoefficientHomotopy(fixed(F; compile = compile), start_coeffs, target_coeffs)

@@ -406,7 +406,7 @@ function MonodromySolver(
     F::Union{System,AbstractSystem},
     parameters;
     intrinsic = nothing,
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     tracker_options = TrackerOptions(),
     options = MonodromyOptions(),
 )
@@ -554,7 +554,7 @@ function monodromy_solve(
     tracker_options = TrackerOptions(),
     show_progress::Bool = true,
     threading::Bool = Threads.nthreads() > 1,
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     catch_interrupt::Bool = true,
     dim = nothing,
     codim = nothing,
@@ -637,7 +637,7 @@ end
 Try to find a pair `(x,p)` for the system `F` such that `F(x,p) = 0` by randomly sampling
 a pair `(x₀, p₀)` and performing Newton's method in variable *and* parameter space.
 """
-find_start_pair(F::System; compile::Bool = COMPILE_DEFAULT[], kwargs...) =
+find_start_pair(F::System; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[], kwargs...) =
     find_start_pair(fixed(F; compile = compile); kwargs...)
 function find_start_pair(
     F::AbstractSystem;

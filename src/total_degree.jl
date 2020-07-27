@@ -18,7 +18,7 @@ a start system following [^Wam93] will be constructed.
 """
 function total_degree(
     F::Union{System,AbstractSystem};
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     kwargs...,
 )
     if isa(F, AbstractSystem) || isnothing(variable_groups(F))
@@ -36,7 +36,7 @@ function total_degree_variables(
     gamma = γ,
     tracker_options = TrackerOptions(),
     endgame_options = EndgameOptions(),
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     kwargs...,
 )
     unsupported_kwargs(kwargs)
@@ -128,7 +128,7 @@ function total_degree_variable_groups(
     target_parameters = nothing,
     tracker_options = TrackerOptions(),
     endgame_options = EndgameOptions(),
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     kwargs...,
 )
     unsupported_kwargs(kwargs)

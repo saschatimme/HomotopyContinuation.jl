@@ -22,9 +22,9 @@ ModelKit.variable_groups(F::AffineChartSystem) = variable_groups(F.system)
 Construct an `AffineChartSystem` on a randomly generated chart `v`. Each entry is drawn
 idepdently from a univariate normal distribution.
 """
-on_affine_chart(F::System, dims = nothing; compile::Bool = COMPILE_DEFAULT[], kwargs...) =
+on_affine_chart(F::System, dims = nothing; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[], kwargs...) =
     on_affine_chart(fixed(F; compile = compile), dims)
-function on_affine_chart(F::AbstractSystem, dims = nothing, compile::Bool = true)
+function on_affine_chart(F::AbstractSystem, dims = nothing, compile::Union{Bool,Symbol} = true)
     vargroups = variable_groups(F)
     if vargroups === nothing
         dims = [size(F, 2) - 1]

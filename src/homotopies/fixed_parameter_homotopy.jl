@@ -10,9 +10,9 @@ struct FixedParameterHomotopy{S<:AbstractHomotopy,T} <: AbstractHomotopy
     homotopy::S
     parameters::Vector{T}
 end
-FixedParameterHomotopy(H::Homotopy, p; compile::Bool = COMPILE_DEFAULT[]) =
+FixedParameterHomotopy(H::Homotopy, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     FixedParameterHomotopy(fixed(H; compile = compile), p)
-FixedParameterHomotopy(H::AbstractHomotopy, p; compile::Bool = COMPILE_DEFAULT[]) =
+FixedParameterHomotopy(H::AbstractHomotopy, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     FixedParameterHomotopy(H, p)
 Base.size(H::FixedParameterHomotopy) = size(H.homotopy)
 
@@ -30,9 +30,9 @@ ModelKit.taylor!(u, v::Val, H::FixedParameterHomotopy, tx, t) =
     taylor!(u, v, H.homotopy, tx, t, H.parameters)
 
 """
-    fix_parameters(H::Union{Homotopy,AbstractHomotopy}, p; compile::Bool = $(COMPILE_DEFAULT[]))
+    fix_parameters(H::Union{Homotopy,AbstractHomotopy}, p; compile::Union{Bool,Symbol} = $(COMPILE_DEFAULT[]))
 
 Fix the parameters of the given homotopy `H`. Returns a [`FixedParameterHomotopy`](@ref).
 """
-fix_parameters(H::Union{Homotopy,AbstractHomotopy}, p; compile::Bool = COMPILE_DEFAULT[]) =
+fix_parameters(H::Union{Homotopy,AbstractHomotopy}, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     FixedParameterHomotopy(H, p; compile = compile)

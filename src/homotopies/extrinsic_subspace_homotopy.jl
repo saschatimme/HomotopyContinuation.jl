@@ -20,7 +20,7 @@ function ExtrinsicSubspaceHomotopy(
     F::System,
     start,
     target;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 )
     ExtrinsicSubspaceHomotopy(fixed(F; compile = compile), start, target)
 end

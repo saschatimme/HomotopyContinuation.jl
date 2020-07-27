@@ -16,7 +16,7 @@ struct StartPairSystem{S<:AbstractSystem,C<:FiniteDiff.JacobianCache} <: Abstrac
     fd_cache::C
 end
 
-StartPairSystem(F::System; compile::Bool = COMPILE_DEFAULT[]) =
+StartPairSystem(F::System; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     StartPairSystem(fixed(F; compile = compile))
 function StartPairSystem(F::AbstractSystem)
     x = zeros(ComplexF64, size(F, 2))

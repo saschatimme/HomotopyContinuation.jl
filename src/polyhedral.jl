@@ -167,7 +167,7 @@ function polyhedral(F::AbstractSystem; kwargs...)
 end
 function polyhedral(
     f::System;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     target_parameters = nothing,
     kwargs...,
 )
@@ -274,7 +274,7 @@ function polyhedral(
     tracker_options = TrackerOptions(),
     only_torus::Bool = false,
     only_non_zero::Bool = only_torus,
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
     kwargs...,
 )
     unsupported_kwargs(kwargs)

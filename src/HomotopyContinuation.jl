@@ -34,7 +34,7 @@ export @polyvar
 
 using ProjectiveVectors: PVector, dims, dimension_indices
 
-const COMPILE_DEFAULT = Ref(true)
+const COMPILE_DEFAULT = Ref(:mixed)
 
 include("utils.jl")
 include("norm.jl")

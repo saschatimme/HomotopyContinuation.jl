@@ -28,7 +28,7 @@ function ParameterHomotopy(
     F::ModelKit.System,
     p::AbstractVector,
     q::AbstractVector;
-    compile::Bool = COMPILE_DEFAULT[],
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
 )
     ParameterHomotopy(fixed(F; compile = compile), p, q)
 end
