@@ -78,6 +78,40 @@ function make_op_block(
     end
 end
 
+function make_taylor_op_block(
+    assign,
+    ord,
+    op,
+    data1::InterpreterData,
+    index1,
+    data2::InterpreterData,
+    index2,
+)
+    arg1 = gen_access(data1, index1)
+    if data2 == NO_DATA
+        quote
+            if $op == OP_SQR
+                $assign = taylor(Val{:sqr}, $ord, $arg1)
+            elseif $op == OP_POW
+                $assign = taylor(Val{:^}, $ord, $arg1, $index2)
+            end
+        end
+    else
+        arg2 = gen_access(data2, index2)
+        quote
+            if $op == OP_MUL
+                $assign = taylor(Val{:*}, $ord, $arg1, $arg2)
+            elseif $op == OP_ADD
+                $assign = taylor(Val{:+}, $ord, $arg1, $arg2)
+            elseif $op == OP_SUB
+                $assign = taylor(Val{:-}, $ord, $arg1, $arg2)
+            elseif $op == OP_DIV
+                $assign = taylor(Val{:/}, $ord, $arg1, $arg2)
+            end
+        end
+    end
+end
+
 
 struct InterpreterArg
     data::InterpreterData
@@ -120,6 +154,40 @@ struct Interpreter{T,N}
     # only for evaluate_and_jacobian
     eval_out::Vector{InterpreterArg}
 end
+
+function Interpreter(
+    list::InstructionList,
+    out::AbstractArray,
+    var_map::Dict{Symbol,Int},
+    t::Union{Nothing,Symbol},
+    param_map::Dict{Symbol,Int},
+    eval_out::Vector,
+)
+    instructions = InterpreterInstruction[]
+    output = Int[]
+    instr_map = Dict{Symbol,Int}()
+    constants = []
+    for (id, (op, arg1, arg2)) in list.instructions
+        OP = InterpreterOp(op, arg1, arg2)
+        ARG1 = InterpreterArg(instr_map, var_map, t, param_map, constants, arg1)
+        if isnothing(arg2) || is_univariate(OP)
+            ARG2 = InterpreterArg(NO_DATA, Int32(0))
+        elseif OP == OP_POW
+            ARG2 = InterpreterArg(NO_DATA, Int32(arg2))
+        else
+            ARG2 = InterpreterArg(instr_map, var_map, t, param_map, constants, arg2)
+        end
+        push!(instructions, InterpreterInstruction(OP, (ARG1, ARG2)))
+        instr_map[id] = length(instructions)
+    end
+    constants = isempty(constants) ? Float64[] : to_smallest_eltype(constants)
+    output = map(id -> InterpreterArg(instr_map, var_map, t, param_map, constants, id), out)
+    eval_output =
+        map(id -> InterpreterArg(instr_map, var_map, t, param_map, constants, id), eval_out)
+
+    Interpreter(instructions, output, constants, eval_output)
+end
+
 
 function Base.show(io::IO, I::Interpreter{T,N}) where {T,N}
     print(io, "Interpreter{$T,$N} with ", length(I.instructions), " instructions")
@@ -208,40 +276,6 @@ function taylor_interpreter(
     dlist = univariate_diff!(list, order_out, diff_map)
     outputs = map(id -> something(diff_map[id, order_out], 0), eval_out)
     Interpreter(dlist, outputs, var_map, t, param_map, eval_out)
-end
-
-
-function Interpreter(
-    list::InstructionList,
-    out::AbstractArray,
-    var_map::Dict{Symbol,Int},
-    t::Union{Nothing,Symbol},
-    param_map::Dict{Symbol,Int},
-    eval_out::Vector,
-)
-    instructions = InterpreterInstruction[]
-    output = Int[]
-    instr_map = Dict{Symbol,Int}()
-    constants = []
-    for (id, (op, arg1, arg2)) in list.instructions
-        OP = InterpreterOp(op, arg1, arg2)
-        ARG1 = InterpreterArg(instr_map, var_map, t, param_map, constants, arg1)
-        if isnothing(arg2) || is_univariate(OP)
-            ARG2 = InterpreterArg(NO_DATA, Int32(0))
-        elseif OP == OP_POW
-            ARG2 = InterpreterArg(NO_DATA, Int32(arg2))
-        else
-            ARG2 = InterpreterArg(instr_map, var_map, t, param_map, constants, arg2)
-        end
-        push!(instructions, InterpreterInstruction(OP, (ARG1, ARG2)))
-        instr_map[id] = length(instructions)
-    end
-    constants = isempty(constants) ? Float64[] : to_smallest_eltype(constants)
-    output = map(id -> InterpreterArg(instr_map, var_map, t, param_map, constants, id), out)
-    eval_output =
-        map(id -> InterpreterArg(instr_map, var_map, t, param_map, constants, id), eval_out)
-
-    Interpreter(instructions, output, constants, eval_output)
 end
 
 struct InterpreterCache{T}
@@ -741,5 +775,135 @@ end
             end
         end
         U
+    end
+end
+
+# Taylor case
+
+for has_t in [false, true], has_p in [false, true]
+    @eval begin
+        function execute!(
+            u::AbstractVecOrMat,
+            ord::Type{Val{K}},
+            I::Interpreter,
+            x::AbstractArray,
+            $((has_t ? (:t₀,) : ())...),
+            $((has_p ? (:(p::AbstractArray),) : (Expr(:kw, :(::Nothing), :nothing),))...),
+            cache::InterpreterCache = InterpreterCache(NTuple{K + 1,eltype(x)}, I),
+        ) where {K}
+            instructions = cache.instructions
+            constants = I.constants
+            $((has_t ? (:(t = (t₀, one(t₀))),) : ())...)
+            for (i, instr) in enumerate(I.instructions)
+                op = instr.op
+                arg1, arg2 = instr.args
+                $(
+                    data_block(
+                        :(arg1.data),
+                        :(arg2.data);
+                        parameters = has_p,
+                        t = has_t,
+                    ) do data1, data2
+                        make_taylor_op_block(
+                            :(instructions[i]),
+                            :ord,
+                            :op,
+                            data1,
+                            :(arg1.ind),
+                            data2,
+                            :(arg2.ind),
+                        )
+                    end
+                )
+            end
+
+            if u isa AbstractMatrix
+                for k in eachindex(I.eval_out)
+                    @unpack data, ind = I.eval_out[k]
+                    if data == DATA_I
+                        for (j, val_j) in enumerate(instructions[ind])
+                            u[k, j] = val_j
+                        end
+                    elseif data == DATA_X
+                        for j = 1:K+1
+                            u[k, j] = length(x[ind]) ≥ j ? x[ind][j] : zero(eltype(u))
+                        end
+                    elseif data == DATA_C
+                        u[k, 1] = constants[ind]
+                        for j = 2:K+1
+                            u[k, j] = zero(eltype(u))
+                        end
+                    else
+                        $(
+                            if has_p
+                                quote
+                                    if data == DATA_P
+                                        for j = 1:K+1
+                                            u[k, j] = length(p[ind]) ≥ j ? p[ind][j] :
+                                                zero(eltype(u))
+                                        end
+                                    end
+                                end
+                            else
+                                :(nothing)
+                            end
+                        )
+                        $(
+                            if has_t
+                                quote
+                                    if data == DATA_T
+                                        u[k, 1] = t
+                                        u[k, 2] = one(eltype(u))
+                                        for j = 3:K+1
+                                            u[k, j] = zero(eltype(u))
+                                        end
+                                    end
+                                end
+                            else
+                                :(nothing)
+                            end
+                        )
+                    end
+                end
+            else
+                for k in eachindex(I.eval_out)
+                    @unpack data, ind = I.eval_out[k]
+                    if data == DATA_I
+                        u[k] = last(instructions[ind])
+                    elseif data == DATA_X
+                        if length(x[ind]) ≥ K + 1
+                            u[k] = x[ind][K+1]
+                        else
+                            u[k] = zero(eltype(u))
+                        end
+                    elseif data == DATA_C
+                        u[k] = zero(eltype(u))
+                    elseif data == DATA_T
+                        if K == 1
+                            u[k] = one(eltype(u))
+                        else
+                            u[k] = zero(eltype(u))
+                        end
+                    else
+                        $(
+                            if has_p
+                                quote
+                                    if data == DATA_P
+                                        if length(p[ind]) ≥ K + 1
+                                            u[k] = p[ind][K+1]
+                                        else
+                                            u[k] = zero(eltype(u))
+                                        end
+                                    end
+                                end
+                            else
+                                :(nothing)
+                            end
+                        )
+                    end
+                end
+            end
+            u
+        end
     end
 end

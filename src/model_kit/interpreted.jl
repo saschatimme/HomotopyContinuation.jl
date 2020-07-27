@@ -19,9 +19,10 @@ struct InterpretedSystem{T} <: AbstractSystem
     eval_interpreter_cache_ext::InterpreterCache{ComplexDF64}
     jac_interpreter::Interpreter{T,2}
     jac_interpreter_cache::InterpreterCache{ComplexF64}
-    taylor_interpreters::Dict{
-        NTuple{3,Int},
-        Tuple{Interpreter{T,1},InterpreterCache{ComplexF64}},
+    taylor_caches::Tuple{
+        InterpreterCache{NTuple{2,ComplexF64}},
+        InterpreterCache{NTuple{3,ComplexF64}},
+        InterpreterCache{NTuple{4,ComplexF64}},
     }
 end
 
@@ -37,9 +38,11 @@ function InterpretedSystem(F::System; optimizations::Bool = true)
     jac_interpreter = convert(Interpreter{T,2}, jac_interpreter)
     eval_interpreter_cache = InterpreterCache(ComplexF64, eval_interpreter)
     eval_interpreter_cache_ext = InterpreterCache(ComplexDF64, eval_interpreter)
-
-    taylor_interpreters =
-        Dict{NTuple{3,Int},Tuple{Interpreter{T,1},InterpreterCache{ComplexF64}}}()
+    taylor_caches = (
+        InterpreterCache(NTuple{2,ComplexF64}, eval_interpreter),
+        InterpreterCache(NTuple{3,ComplexF64}, eval_interpreter),
+        InterpreterCache(NTuple{4,ComplexF64}, eval_interpreter),
+    )
 
     InterpretedSystem(
         F,
@@ -48,7 +51,7 @@ function InterpretedSystem(F::System; optimizations::Bool = true)
         eval_interpreter_cache_ext,
         jac_interpreter,
         InterpreterCache(ComplexF64, jac_interpreter),
-        taylor_interpreters,
+        taylor_caches,
     )
 end
 
@@ -79,34 +82,18 @@ function jacobian!(U, F::InterpretedSystem, x, p = nothing, cache = F.jac_interp
     nothing
 end
 
-function taylor!(
-    u::AbstractVector,
-    v::Val{M},
-    F::InterpretedSystem{T},
-    x,
-    p = nothing,
-) where {T,M}
-    order_x = _order(x)
-    order_p = _order(p)
-    if !haskey(F.taylor_interpreters, (M, order_x, order_p))
-        I = taylor_interpreter(
-            F.system;
-            order_out = M,
-            order_x = order_x,
-            order_p = order_p,
-        )
-        C = InterpreterCache(ComplexF64, I)
-        F.taylor_interpreters[(M, order_x, order_p)] = (I, C)
-    else
-        I, C = F.taylor_interpreters[(M, order_x, order_p)]
+for M = 1:3
+    @eval function taylor!(
+        u::AbstractVecOrMat,
+        v::Val{$M},
+        F::InterpretedSystem,
+        x,
+        p = nothing,
+    )
+        execute!(u, Val{$M}, F.eval_interpreter, x, p, F.taylor_caches[$M])
+        u
     end
-    execute!(u, I, x, p, C)
-    u
 end
-
-_order(::Nothing) = 0
-_order(::AbstractArray) = 0
-_order(::TaylorVector{N}) where {N} = N - 1
 
 """
     InterpretedHomotopy <: AbstractHomotopy
@@ -127,9 +114,10 @@ struct InterpretedHomotopy{T} <: AbstractHomotopy
     eval_interpreter_cache_ext::InterpreterCache{ComplexDF64}
     jac_interpreter::Interpreter{T,2}
     jac_interpreter_cache::InterpreterCache{ComplexF64}
-    taylor_interpreters::Dict{
-        NTuple{3,Int},
-        Tuple{Interpreter{T,1},InterpreterCache{ComplexF64}},
+    taylor_caches::Tuple{
+        InterpreterCache{NTuple{2,ComplexF64}},
+        InterpreterCache{NTuple{3,ComplexF64}},
+        InterpreterCache{NTuple{4,ComplexF64}},
     }
 end
 
@@ -145,9 +133,11 @@ function InterpretedHomotopy(H::Homotopy; optimizations::Bool = true)
     jac_interpreter = convert(Interpreter{T,2}, jac_interpreter)
     eval_interpreter_cache = InterpreterCache(ComplexF64, eval_interpreter)
     eval_interpreter_cache_ext = InterpreterCache(ComplexDF64, eval_interpreter)
-
-    taylor_interpreters =
-        Dict{NTuple{3,Int},Tuple{Interpreter{T,1},InterpreterCache{ComplexF64}}}()
+    taylor_caches = (
+        InterpreterCache(NTuple{2,ComplexF64}, eval_interpreter),
+        InterpreterCache(NTuple{3,ComplexF64}, eval_interpreter),
+        InterpreterCache(NTuple{4,ComplexF64}, eval_interpreter),
+    )
 
     InterpretedHomotopy(
         H,
@@ -156,7 +146,7 @@ function InterpretedHomotopy(H::Homotopy; optimizations::Bool = true)
         eval_interpreter_cache_ext,
         jac_interpreter,
         InterpreterCache(ComplexF64, jac_interpreter),
-        taylor_interpreters,
+        taylor_caches,
     )
 end
 
@@ -215,28 +205,16 @@ function jacobian!(
     nothing
 end
 
-function taylor!(
-    u::AbstractVector,
-    v::Val{M},
-    H::InterpretedHomotopy{T},
-    x,
-    t,
-    p::Union{AbstractArray,Nothing} = nothing,
-) where {T,M}
-    order_x = _order(x)
-    order_p = _order(p)
-    if !haskey(H.taylor_interpreters, (M, order_x, order_p))
-        I = taylor_interpreter(
-            H.homotopy;
-            order_out = M,
-            order_x = order_x,
-            order_p = order_p,
-        )
-        C = InterpreterCache(ComplexF64, I)
-        H.taylor_interpreters[(M, order_x, order_p)] = (I, C)
-    else
-        I, C = H.taylor_interpreters[(M, order_x, order_p)]
+for M = 1:3
+    @eval function taylor!(
+        u::AbstractVecOrMat,
+        v::Val{$M},
+        H::InterpretedHomotopy,
+        x,
+        t,
+        p = nothing,
+    )
+        execute!(u, Val{$M}, H.eval_interpreter, x, t, p, H.taylor_caches[$M])
+        u
     end
-    execute!(u, I, x, t, p, C)
-    u
 end

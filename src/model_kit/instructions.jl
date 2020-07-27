@@ -140,14 +140,9 @@ struct DiffMap
     D::Dict{Tuple{Symbol,Int},Any}
 end
 DiffMap() = DiffMap(Dict{Tuple{Symbol,Int},Any}())
-function Base.getindex(D::DiffMap, s::Symbol, i::Int)
-    i == 0 && return s
-    get(D.D, (s, i), nothing)
-end
-function Base.getindex(D::DiffMap, s, i)
-    i == 0 && return s
-    nothing
-end
+
+Base.getindex(D::DiffMap, s::Symbol, i::Int) = i == 0 ? s : get(D.D, (s, i), nothing)
+Base.getindex(D::DiffMap, s, i) = i == 0 ? s : nothing
 Base.setindex!(D::DiffMap, v::Any, s::Symbol, i::Int) = D.D[(s, i)] = v
 Base.setindex!(D::DiffMap, v::Nothing, s::Symbol, i::Int) = nothing
 
@@ -226,6 +221,11 @@ function diff!(list::InstructionList, N::Int, D::DiffMap)
             for ∂i = 1:N
                 ∂i == 1 && push!(v, id => el)
                 D[id, ∂i] = add!(v, D[arg1, ∂i], D[arg2, ∂i])
+            end
+        elseif op == :-
+            for ∂i = 1:N
+                ∂i == 1 && push!(v, id => el)
+                D[id, ∂i] = sub!(v, D[arg1, ∂i], D[arg2, ∂i])
             end
         end
     end
@@ -326,12 +326,15 @@ end
     Complex((x + y) * (x - y), (x + x) * y)
 end
 
+quick_div(a, b::Complex) = Base.FastMath.div_fast(a, b)
+quick_div(a, b) = a / b
+
 """
     inv_not_zero(x)
 
 Invert x unless it is 0, then return 0.
 """
-@inline inv_not_zero(x) = ifelse(iszero(x), x, inv(x))
+@inline inv_not_zero(x) = ifelse(iszero(x), x, @fastmath inv(x))
 
 function unroll_pow(var, n)
     n == 0 && return :(one($var))
@@ -358,9 +361,6 @@ function unroll_pow(var, n)
     end
     Expr(:let, :($(Symbol(x, 1)) = $var), Expr(:block, exprs...))
 end
-
-quick_div(a, b::Complex) = Base.FastMath.div_fast(a, b)
-quick_div(a, b) = a / b
 
 function to_expr(
     list::InstructionList,
@@ -401,100 +401,4 @@ function to_expr(
         end
     end
     block
-end
-
-function untuple(varname, tuplename, M)
-    :($(Expr(:tuple, varname, (Symbol(varname, k) for k = 1:M-1)...)) = $tuplename)
-end
-
-function _impl_taylor_bivariate(K, M, N, op; inline = true)
-    list = ModelKit.InstructionList()
-    id = push!(list, (op, :x, :y))
-    diff_map = ModelKit.DiffMap()
-    for i = 1:M-1
-        diff_map[:x, i] = Symbol(:x, i)
-    end
-    for j = 1:N-1
-        diff_map[:y, j] = Symbol(:y, j)
-    end
-    dlist = ModelKit.univariate_diff!(list, K, diff_map)
-    quote
-        $(inline ? :(Base.@_inline_meta) : :())
-        $(untuple(:x, :tx, M))
-        $(untuple(:y, :ty, N))
-        $(ModelKit.to_expr(dlist))
-        $(Expr(:tuple, id, ((d = diff_map[id, k];
-        d === nothing ? :(zero(x)) : d) for k = 1:K)...))
-    end
-end
-
-
-@generated function taylor(
-    ::Type{Val{op}},
-    ::Type{Val{K}},
-    tx::NTuple{M},
-    ty::NTuple{N},
-) where {op,K,M,N}
-    _impl_taylor_bivariate(K, M, N, op)
-end
-
-make_ntuple(t) = t
-make_ntuple(t::Number) = (t,)
-make_ntuple(t::Tuple{A,B}) where {A,B} = convert(NTuple{2,promote_type(A, B)}, t)
-make_ntuple(t::Tuple{A,B,C}) where {A,B,C} = convert(NTuple{3,promote_type(A, B, C)}, t)
-make_ntuple(t::Tuple{A,B,C,D}) where {A,B,C,D} =
-    convert(NTuple{4,promote_type(A, B, C, D)}, t)
-make_ntuple(t::Tuple{A,B,C,D,E}) where {A,B,C,D,E} =
-    convert(NTuple{5,promote_type(A, B, C, D, E)}, t)
-
-taylor(op::Type{T1}, v::Type{T2}, tx, ty) where {T1,T2} =
-    taylor(op::Type{T1}, v::Type{T2}, make_ntuple(tx), make_ntuple(ty))
-function taylor(op::Type{T1}, v::Type{T2}, tx) where {T1,T2}
-    taylor(op::Type{T1}, v::Type{T2}, make_ntuple(tx))
-end
-
-function _impl_taylor_pow(K, M)
-    list = ModelKit.InstructionList()
-    id = push!(list, (:^, :x, :r))
-    diff_map = ModelKit.DiffMap()
-    for i = 1:M-1
-        diff_map[:x, i] = Symbol(:x, i)
-    end
-    dlist = ModelKit.univariate_diff!(list, K, diff_map)
-    quote
-        $(untuple(:x, :tx, M))
-        $(ModelKit.to_expr(dlist))
-        $(Expr(:tuple, id, ((d = diff_map[id, k];
-        d === nothing ? :(zero(x)) : d) for k = 1:K)...))
-    end
-end
-
-@generated function taylor(
-    ::Type{Val{:^}},
-    ::Type{Val{K}},
-    tx::NTuple{M},
-    r::Integer,
-) where {K,M}
-    _impl_taylor_pow(K, M)
-end
-
-function _impl_taylor_sqr(K, M)
-    list = ModelKit.InstructionList()
-    id = push!(list, (:^, :x, 2))
-    diff_map = ModelKit.DiffMap()
-    for i = 1:M-1
-        diff_map[:x, i] = Symbol(:x, i)
-    end
-    dlist = ModelKit.univariate_diff!(list, K, diff_map)
-    quote
-        $(untuple(:x, :tx, M))
-        $(ModelKit.to_expr(dlist))
-        $(Expr(:tuple, id, ((d = diff_map[id, k];
-        d === nothing ? :(zero(x)) : d) for k = 1:K)...))
-    end
-end
-
-
-@generated function taylor(::Type{Val{:sqr}}, ::Type{Val{K}}, tx::NTuple{M}) where {K,M}
-    _impl_taylor_sqr(K, M)
 end
