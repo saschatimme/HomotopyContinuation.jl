@@ -79,65 +79,49 @@ end
 
 logabs(x) = log(fast_abs(x))
 
-function update!(val::Valuation, pred::Predictor{AD{N}}, t::Real) where {N}
-    # use analytic expressions if derivatives are computed with automatic differentiation
-    if N ≥ 3
-        update_analytic!(val, pred.tx³, t)
-        return val
-    end
-
-    # otherwise use finite difference scheme
+function update!(val::Valuation, pred::Predictor, t::Real)
     logt = log(t)
     ν₂, ν₁ = val.val_x_data
     logx₂, logx₁, = val.logx_data
     logẋ₂, logẋ₁, = val.logẋ_data
     logt₂, logt₁ = val.logt_data
     val_ẋ₂, val_ẋ₁ = val.val_ẋ_data
-    diff = isnan(logt₂) || abs(logt₂ - logt) > 0.25
-    for (i, (xᵢ, ẋᵢ)) in enumerate(pred.tx¹)
+
+    # We use finite difference when the predictor is in hermite mode since then we only
+    # have ẋ available
+    diff = pred.winding_number > 1 && !isnan(logt₂)
+    for (i, (xᵢ, ẋᵢ, x²ᵢ, x³ᵢ)) in enumerate(pred.tx³)
         logxᵢ = logabs(xᵢ)
-        νᵢ = ν(xᵢ, ẋᵢ, t)
-        if diff && !isnan(logt₂)
+        logẋᵢ = logabs(ẋᵢ)
+
+        if diff
+            νᵢ = ν(xᵢ, ẋᵢ, t)
             Δνᵢ = finite_diff(νᵢ, logt, ν₂[i], logt₂, ν₁[i], logt₁)
-
-            logẋᵢ = logabs(ẋᵢ)
-            val_ẋᵢ = finite_diff(logẋᵢ, logt, logẋ₂[i], logt₂, logẋ₁[i], logt₁)
-            Δval_ẋᵢ = finite_diff(val_ẋᵢ, logt, val_ẋ₂[i], logt₂, val_ẋ₁[i], logt₁)
-
             val.val_x[i] = νᵢ
             val.Δval_x[i] = Δνᵢ
+
+            val_ẋᵢ = finite_diff(logẋᵢ, logt, logẋ₂[i], logt₂, logẋ₁[i], logt₁)
+            Δval_ẋᵢ = finite_diff(val_ẋᵢ, logt, val_ẋ₂[i], logt₂, val_ẋ₁[i], logt₁)
             val.val_tẋ[i] = val_ẋᵢ + 1
             val.Δval_tẋ[i] = Δval_ẋᵢ
-
+        else
+            νᵢ, ν¹ = ν_ν¹(xᵢ, ẋᵢ, 2x²ᵢ, t)
+            val.val_x[i] = νᵢ
+            val.Δval_x[i] = t * ν¹
             ν₂[i], ν₁[i] = νᵢ, ν₂[i]
-            logx₂[i], logx₁[i] = logxᵢ, logx₂[i]
-            logẋ₂[i], logẋ₁[i] = logẋᵢ, logẋ₂[i]
-            val_ẋ₂[i], val_ẋ₁[i] = val_ẋᵢ, val_ẋ₂[i]
+
+            val_ẋᵢ, ν¹ = ν_ν¹(ẋᵢ, 2x²ᵢ, 6x³ᵢ, t)
+            val.val_tẋ[i] = val_ẋᵢ + 1
+            val.Δval_tẋ[i] = t * ν¹
         end
+        logx₂[i], logx₁[i] = logxᵢ, logx₂[i]
+        logẋ₂[i], logẋ₁[i] = logẋᵢ, logẋ₂[i]
     end
-    if diff
-        val.logt_data = (logt, logt₂)
-    end
+
+    val.logt_data = (logt, logt₂)
 
     val
 end
-
-function update_analytic!(val::Valuation, tx::TaylorVector, t::Real)
-    for i in eachindex(tx)
-        xᵢ, ẋᵢ, x²ᵢ, x³ᵢ = tx[i]
-
-        ν, ν¹ = ν_ν¹(xᵢ, ẋᵢ, 2x²ᵢ, t)
-        val.val_x[i] = ν
-        val.Δval_x[i] = t * ν¹
-
-        ν, ν¹ = ν_ν¹(ẋᵢ, 2x²ᵢ, 6x³ᵢ, t)
-        val.val_tẋ[i] = ν + 1
-        val.Δval_tẋ[i] = t * ν¹
-    end
-
-    val
-end
-
 
 """
     finite_diff(ν₃, s₃, ν₂, s₂, ν₁, s₁)
@@ -153,9 +137,7 @@ The implementation follows the formulas derived in [^BS05].
 """
 function finite_diff(ν, s, ν₂, s₂, ν₁, s₁)
     Δ₁, Δ₂, Δ₁₂ = s - s₁, s - s₂, s₁ - s₂
-    ν̇ = (Δ₂ * ν₁) / (Δ₁₂ * Δ₁) - ((Δ₁₂ + Δ₂) * ν₂) / (Δ₁₂ * Δ₂) - (Δ₁₂ * ν) / (Δ₁ * Δ₂)
-    # ν̈ = -2ν₁ / (Δ₁₂ * Δ₁) + 2ν₂ / (Δ₁₂ * Δ₂) + 2ν / (Δ₁ * Δ₂)
-    ν̇
+    (Δ₂ * ν₁) / (Δ₁₂ * Δ₁) - ((Δ₁₂ + Δ₂) * ν₂) / (Δ₁₂ * Δ₂) - (Δ₁₂ * ν) / (Δ₁ * Δ₂)
 end
 
 function at_infinity_tol!(

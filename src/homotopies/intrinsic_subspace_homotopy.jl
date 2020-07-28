@@ -322,7 +322,10 @@ function ModelKit.taylor!(
     x, x¹, x² = vectors(H.tx²)
     v, v¹ = vectors(tv)
 
-    if !incr
+    if incr
+        x .= H.x
+        x¹ .= H.ẋ
+    else
         LA.mul!(x, γ, v)
         LA.mul!(x¹, γ¹, v)
     end

@@ -224,12 +224,9 @@ See [`EndgameOptions`](@ref) for the possible options.
 
 [^BT20]: Breiding, P. and Timme, S. "Tropical Endgame", In preparation (2020)
 """
-struct EndgameTracker{
-    H<:AbstractHomotopy,
-    N, # AutomaticDifferentiation
-    M<:AbstractMatrix{ComplexF64},
-} <: AbstractPathTracker
-    tracker::Tracker{H,N,M}
+struct EndgameTracker{H<:AbstractHomotopy,M<:AbstractMatrix{ComplexF64}} <:
+       AbstractPathTracker
+    tracker::Tracker{H,M}
     state::EndgameTrackerState
     options::EndgameOptions
 end

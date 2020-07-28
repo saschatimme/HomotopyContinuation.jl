@@ -125,8 +125,11 @@ julia> (g ∘ f)([x,y,z])
  (x + z)*(y + z)*(x + y)
 ```
 """
-compose(g::AbstractSystem, f::AbstractSystem; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
-    CompositionSystem(g, f)
+compose(
+    g::AbstractSystem,
+    f::AbstractSystem;
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
+) = CompositionSystem(g, f)
 compose(g::AbstractSystem, f::System; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     CompositionSystem(g, fixed(f; compile = compile))
 function compose(g::System, f::System; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[])

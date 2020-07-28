@@ -330,7 +330,12 @@ function certify(
     end
     certify(sys, X, p; target_parameters = target_parameters, kwargs...)
 end
-function certify(F::System, args...; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[], kwargs...)
+function certify(
+    F::System,
+    args...;
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
+    kwargs...,
+)
     certify(fixed(F; compile = compile), args...; kwargs...)
 end
 function certify(

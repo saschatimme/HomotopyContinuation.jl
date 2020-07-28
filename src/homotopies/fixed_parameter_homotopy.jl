@@ -12,8 +12,11 @@ struct FixedParameterHomotopy{S<:AbstractHomotopy,T} <: AbstractHomotopy
 end
 FixedParameterHomotopy(H::Homotopy, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
     FixedParameterHomotopy(fixed(H; compile = compile), p)
-FixedParameterHomotopy(H::AbstractHomotopy, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
-    FixedParameterHomotopy(H, p)
+FixedParameterHomotopy(
+    H::AbstractHomotopy,
+    p;
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
+) = FixedParameterHomotopy(H, p)
 Base.size(H::FixedParameterHomotopy) = size(H.homotopy)
 
 ModelKit.variables(H::FixedParameterHomotopy) = variables(H.homotopy)
@@ -34,5 +37,8 @@ ModelKit.taylor!(u, v::Val, H::FixedParameterHomotopy, tx, t) =
 
 Fix the parameters of the given homotopy `H`. Returns a [`FixedParameterHomotopy`](@ref).
 """
-fix_parameters(H::Union{Homotopy,AbstractHomotopy}, p; compile::Union{Bool,Symbol} = COMPILE_DEFAULT[]) =
-    FixedParameterHomotopy(H, p; compile = compile)
+fix_parameters(
+    H::Union{Homotopy,AbstractHomotopy},
+    p;
+    compile::Union{Bool,Symbol} = COMPILE_DEFAULT[],
+) = FixedParameterHomotopy(H, p; compile = compile)

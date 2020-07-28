@@ -60,7 +60,7 @@ function extended_prec_refinement_step!(
     t::Number,
     J::Jacobian,
     norm::AbstractNorm;
-    simple_newton_step::Bool = true
+    simple_newton_step::Bool = true,
 )
     @unpack Δx, r, x_extended = NC
     evaluate_and_jacobian!(r, matrix(J), H, x, t)
@@ -189,6 +189,8 @@ function newton!(
                 ω̄ = 2 * norm_Δxᵢ / norm_Δxᵢ₊₁^2
                 if ω̄ < ω
                     ω = ω̄
+                else
+                    ω *= 0.25
                 end
             end
 

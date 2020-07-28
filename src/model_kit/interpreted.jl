@@ -212,7 +212,7 @@ for M = 1:3
         H::InterpretedHomotopy,
         x,
         t,
-        p = nothing,
+        p::Union{AbstractVector,Nothing} = nothing,
     )
         execute!(u, Val{$M}, H.eval_interpreter, x, t, p, H.taylor_caches[$M])
         u

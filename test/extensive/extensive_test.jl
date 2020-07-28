@@ -55,8 +55,13 @@
             1 // 1,
         ]
 
-        real_res =
-            solve(F, solutions(res); start_parameters = p, target_parameters = real_conics)
+        real_res = solve(
+            F,
+            solutions(res);
+            start_parameters = p,
+            target_parameters = real_conics,
+            tracker_options = (parameters = :conservative,),
+        )
 
         @test nsolutions(real_res) == 3264
         real_cert = certify(F, real_res, real_conics)

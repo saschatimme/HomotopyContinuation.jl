@@ -42,7 +42,6 @@
         @test all(is_success, res)
         @test round.(Int, real.(sort(first.(solution.(res)); by = abs))) == 1:d
         @test maximum(abs.(imag.(first.(solution.(res))))) < 1e-4
-        @test count(r -> isnothing(r.winding_number), res) == d
     end
 
     @testset "(x-10)^$d" for d in [2, 6]
