@@ -700,7 +700,7 @@ function tracking_stopped!(endgame_tracker::EndgameTracker)
         )
         state.cond =
             LA.cond(tracker, state.solution, 0.0, state.row_scaling, state.col_scaling)
-        state.singular = state.cond > 1e14 || state.accuracy > 1e-12
+        state.singular = state.cond > 1e13 || state.accuracy > 1e-12
     end
 end
 
