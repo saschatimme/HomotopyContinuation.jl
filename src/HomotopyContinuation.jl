@@ -36,6 +36,20 @@ using ProjectiveVectors: PVector, dims, dimension_indices
 
 const COMPILE_DEFAULT = Ref(:mixed)
 
+export set_default_compile
+
+"""
+    set_default_compile(mode::Symbol)
+
+Set the default value for the `compile` flag in [`solve`](@ref) and other functions.
+Possible values are `:mixed` (default), `:all` and `:none`.
+"""
+function set_default_compile(mode::Symbol)
+    mode ∈ [:mixed, :all, :none] ||
+        error("Invalid value `:$mode`, valid values are `:mixed`, `:all`, `:none`.")
+    COMPILE_DEFAULT[] = mode
+end
+
 include("utils.jl")
 include("norm.jl")
 include("voronoi_tree.jl")
