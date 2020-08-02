@@ -256,7 +256,7 @@ using HomotopyContinuation.ModelKit
         @test variables(F4) == [x, y]
 
         @var x y a b
-        f = Any[(x + y)^3+x^2+x+5y+3a, 2*x^2+b]
+        f = Any[(x+y)^3+x^2+x+5y+3a, 2*x^2+b]
         F = System(f, [x, y], [b, a])
         @test F isa System
     end
