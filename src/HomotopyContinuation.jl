@@ -6,6 +6,8 @@ import DelimitedFiles
 using DynamicPolynomials: @polyvar
 import ElasticArrays: ElasticArray
 import FiniteDiff
+import FunctionWrappers
+using FunctionWrappers: FunctionWrapper
 import LinearAlgebra
 import LoopVectorization
 using LRUCache: LRU

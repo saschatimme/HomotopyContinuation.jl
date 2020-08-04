@@ -453,6 +453,7 @@ function Tracker(
     weighted_norm_options::WeightedNormOptions = WeightedNormOptions(),
     options = TrackerOptions(),
 )
+    H = WrappedHomotopy(H)
     if !isa(options, TrackerOptions)
         options = TrackerOptions(; options...)
     else
