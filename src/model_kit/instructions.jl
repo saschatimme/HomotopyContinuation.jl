@@ -197,6 +197,15 @@ function _add_instructions!(
             _add_instructions!(list, x, cse, pse),
             _add_instructions!(list, y, cse, pse),
         )
+    elseif t == :FunctionSymbol
+        if sym_func_name(ex) == :det
+            avec = collect(args(ex))
+            n = round(Int, sqrt(length(avec)))
+            A = reshape(avec, n, n)
+            error("NOT IMPLEMENTED")
+        else
+            error("NOT IMPLEMENTED")
+        end
     else
         return to_number(ex)
     end

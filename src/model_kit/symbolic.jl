@@ -483,7 +483,21 @@ julia> expand((x + y) ^ 2)
 2*x*y + x^2 + y^2
 ```
 """
-expand(e::Basic) = symengine_expand(e)
+function expand(e::Basic)
+    func_symbols = function_symbols(e)
+    for x in func_symbols
+        func_name = sym_func_name(x)
+        if func_name == :det
+            avec = collect(args(x))
+            n = round(Int, sqrt(length(avec)))
+            A = reshape(avec, n, n)
+            e = subs(e, x => expand_det(A))
+        else
+            throw(ArgumentError(string("Unsupported function symbol: ", func_name)))
+        end
+    end
+    symengine_expand(e)
+end
 
 """
     to_dict(expr::Expression, vars::AbstractVector{Variable})
@@ -679,19 +693,20 @@ function degrees(
 end
 
 
-function LinearAlgebra.det(M::AbstractMatrix{<:Union{Variable,Expression}})
+function expand_det(M::AbstractMatrix{<:Basic})
     m, n = size(M)
     m == n || error("Cannot take determinant of non-square matrix.")
     if m > 2
-        return sum(
-            (-1)^(i - 1) * M[i, 1] * LinearAlgebra.det(M[1:end.!=i, 2:end]) for i = 1:m
-        )
+        return sum((-1)^(i - 1) * M[i, 1] * expand_det(M[1:end.!=i, 2:end]) for i = 1:m)
     elseif m == 2
         return M[1, 1] * M[2, 2] - M[2, 1] * M[1, 2]
     else # m == 1
         return M[1, 1]
     end
 end
+
+LinearAlgebra.det(M::AbstractMatrix{<:Union{Variable,Expression}}) =
+    make_sym_func("det", vec(M))
 LinearAlgebra.det(M::LinearAlgebra.Symmetric{<:Union{Variable,Expression}}) =
     LinearAlgebra.det(Matrix(M))
 

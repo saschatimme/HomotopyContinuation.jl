@@ -142,10 +142,17 @@ function to_string(x::Basic)
     if b.ptr == C_NULL
         return ""
     end
-    a = ccall((:basic_str_julia, libsymengine), Cstring, (Ref{ExpressionRef},), b)
-    string = unsafe_string(a)
-    ccall((:basic_str_free, libsymengine), Nothing, (Cstring,), a)
-    return string
+    if class(b) == :FunctionSymbol && sym_func_name(b) == :det
+        str_args = to_string.(args(b))
+        n = round(Int, sqrt(length(str_args)))
+        A = reshape(str_args, n, n)
+        string("det([", join([join(row, " ") for row in eachrow(A)], "; "), "])")
+    else
+        a = ccall((:basic_str_julia, libsymengine), Cstring, (Ref{ExpressionRef},), b)
+        str = unsafe_string(a)
+        ccall((:basic_str_free, libsymengine), Nothing, (Cstring,), a)
+        return str
+    end
 end
 
 Base.show(io::IO, b::Basic) = print(io, to_string(b))
@@ -417,6 +424,18 @@ function _variables(ex::Expression)
     sort!([Variable(syms[i]) for i = 1:length(syms)])
 end
 
+function function_symbols(ex::Basic)
+    syms = ExpressionSet()
+    ccall(
+        (:basic_function_symbols, libsymengine),
+        Nothing,
+        (Ptr{Cvoid}, Ref{ExpressionRef}),
+        syms.ptr,
+        ex,
+    )
+    [syms[i] for i = 1:length(syms)]
+end
+
 function differentiate(f::Basic, v::Variable)
     a = Expression()
     ret = ccall(
@@ -435,6 +454,7 @@ function differentiate(f::Basic, v::Variable, n::Int)
     n == 1 && return differentiate(f, v)
     n > 1 && return differentiate(differentiate(f, v), v, n - 1)
 end
+
 
 # Get class of an Expression
 
@@ -551,6 +571,96 @@ function args!(vec::ExprVec, ex::Basic)
         vec.ptr,
     )
     vec_set_ptr!(vec)
+end
+
+#
+# mutable struct ExprMat <: DenseArray{Expression,2}
+#     ptr::Ptr{Cvoid}
+#
+#     function ExprMat(m::Int, n::Int)
+#         ptr =
+#             ccall((:dense_matrix_new_rows_cols, libsymengine), Ptr{Cvoid}, (Int, Int), m, n)
+#         z = new(ptr)
+#         finalizer(free!, z)
+#         z
+#     end
+# end
+#
+# function ExprMat(A::AbstractMatrix{<:Basic})
+#     M = ExprMat(size(A)...)
+#     for j in 1:size(A,2), i in 1:size(A,1)
+#         M[i,j] = A[i,j]
+#     end
+#     M
+# end
+#
+# function free!(x::ExprMat)
+#     if x.ptr != C_NULL
+#         ccall((:dense_matrix_free, libsymengine), Nothing, (Ptr{Cvoid},), x.ptr)
+#         x.ptr = C_NULL
+#     end
+# end
+#
+# nrows(M::ExprMat) = ccall((:dense_matrix_rows, libsymengine), Int, (Ptr{Cvoid},), M.ptr)
+# ncols(M::ExprMat) = ccall((:dense_matrix_cols, libsymengine), Int, (Ptr{Cvoid},), M.ptr)
+# Base.size(M::ExprMat) = (nrows(M), ncols(M))
+# # Base.promote_rule(::Type{CDenseMatrix}, ::Type{Matrix{T}} ) where {T <: Basic} = CDenseMatrix
+#
+# function Base.getindex(M::ExprMat, r::Int, c::Int)
+#     @boundscheck checkbounds(M, r, c)
+#     result = Expression()
+#     ccall(
+#         (:dense_matrix_get_basic, libsymengine),
+#         Nothing,
+#         (Ref{Expression}, Ptr{Cvoid}, UInt, UInt),
+#         result,
+#         M.ptr,
+#         UInt(r - 1),
+#         UInt(c - 1),
+#     )
+#     result
+# end
+# function Base.setindex!(M::ExprMat, x::Basic, r::Int, c::Int)
+#     @boundscheck checkbounds(M, r, c)
+#     ccall(
+#         (:dense_matrix_set_basic, libsymengine),
+#         Nothing,
+#         (Ptr{Cvoid}, UInt, UInt, Ref{ExpressionRef}),
+#         M.ptr,
+#         UInt(r - 1),
+#         UInt(c - 1),
+#         x,
+#     )
+#     x
+# end
+
+function make_sym_func(name::String, x::Vector)
+    a = Expression()
+    args = ExprVec()
+    for xᵢ in x
+        push!(args, xᵢ)
+    end
+    ccall(
+        (:function_symbol_set, libsymengine),
+        Nothing,
+        (Ref{Basic}, Ptr{Int8}, Ptr{Cvoid}),
+        a,
+        name,
+        args.ptr,
+    )
+    return a
+end
+
+function sym_func_name(x::Basic)
+    a = ccall(
+        (:function_symbol_get_name, libsymengine),
+        Ptr{UInt8},
+        (Ref{ExpressionRef},),
+        x,
+    )
+    string = unsafe_string(a)
+    ccall((:basic_str_free, libsymengine), Nothing, (Cstring,), a)
+    return Symbol(string)
 end
 
 
